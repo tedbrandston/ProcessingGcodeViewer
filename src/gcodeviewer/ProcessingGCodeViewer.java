@@ -33,8 +33,6 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import peasy.PeasyCam;
 import processing.core.PApplet;
 
-import com.processinghacks.arcball.ArcBall;
-
 public class ProcessingGCodeViewer extends PApplet {
 
 	private static int staticColor(int x, int y, int z) {
@@ -131,7 +129,6 @@ public class ProcessingGCodeViewer extends PApplet {
 	private final int xSize = 5 * screen.width / 6;
 	private final int ySize = 5 * screen.height / 6;
 
-	private ArcBall arcball;
 	private PeasyCam cam;
 
 	/*
@@ -226,8 +223,6 @@ public class ProcessingGCodeViewer extends PApplet {
 	}
 
 	public void setupCamera() {
-
-		// arcball = new ArcBall(width / 2, height / 2, -500, 500, this);
 
 		float fov = (float) (PI / 3.0);
 		float cameraZ = (height / 2.0f) / tan(fov / 2.0f);
