@@ -2,7 +2,7 @@ package gcodeviewer.parsers;
 
 import gcodeviewer.utils.GCodeSource;
 import gcodeviewer.utils.LineSegment;
-import gcodeviewer.utils.Point5f;
+import gcodeviewer.utils.Point5d;
 
 import java.util.ArrayList;
 
@@ -13,8 +13,8 @@ public class DefaultParser extends GCodeParser {
 	@Override
 	public void parse(ArrayList<String> gcode) {
 		float speed = 2; // DEFAULTS to 2
-		Point5f lastPoint = null;
-		Point5f curPoint = null;
+		Point5d lastPoint = null;
+		Point5d curPoint = null;
 		int curLayer = 0;
 		int curToolhead = 0;
 		float parsedX, parsedY, parsedZ, parsedF;
@@ -69,7 +69,7 @@ public class DefaultParser extends GCodeParser {
 						System.out.println(lastCoord[0] + "," + lastCoord[1] + "," + lastCoord[2]
 								+ ", speed =" + speed + ", layer=" + curLayer);
 					}
-					curPoint = new Point5f(lastCoord[0], lastCoord[1], lastCoord[2]);
+					curPoint = new Point5d(lastCoord[0], lastCoord[1], lastCoord[2]);
 					if (currentExtruding && curLayer > 5) {
 						bounds.add(curPoint);
 					}

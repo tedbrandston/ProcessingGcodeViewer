@@ -17,8 +17,8 @@ This program is free software: you can redistribute it and/or modify
  */
 package gcodeviewer;
 
-import gcodeviewer.parsers.DefaultParser;
 import gcodeviewer.parsers.GCodeParser;
+import gcodeviewer.parsers.MightyParser;
 import gcodeviewer.utils.LineSegment;
 
 import java.io.File;
@@ -36,6 +36,48 @@ import processing.core.PApplet;
 import com.processinghacks.arcball.ArcBall;
 
 public class ProcessingGCodeViewer extends PApplet {
+
+	private static int staticColor(int x, int y, int z) {
+		return 0xff000000 | (x << 16) | (y << 8) | z;
+	}
+
+	private static int staticColor(int x, int y, int z, int a) {
+		return (a << 24) | (x << 16) | (y << 8) | z;
+	}
+
+	private static int staticColor(int c, int a) {
+		c = c & 0x00ffffff;
+		return (a << 24) | c;
+	}
+
+	private enum ColoringStyle {
+		DUALSTRUSION {
+			@Override
+			public int getColor(LineSegment l) {
+				int alpha = l.getExtruding() ? 0xff : 0x00;
+				if (l.getToolhead() == 0)
+					return staticColor(BLUE, SOLID);
+				return staticColor(GREEN, SOLID);
+			}
+		},
+		FEEDRATE {
+			@Override
+			public int getColor(LineSegment l) {
+				int speed = (int) PApplet.map(l.getSpeed(), 0, 5000, 0, 255);
+				return staticColor(speed, speed, speed);
+			}
+		},
+		TEMPERATURE {
+			@Override
+			public int getColor(LineSegment l) {
+				// white
+				return WHITE;
+			}
+		};
+
+		public abstract int getColor(LineSegment l);
+	}
+
 	private final boolean dualExtrusionColoring = false;
 
 	private final boolean is2D = false;
@@ -46,24 +88,25 @@ public class ProcessingGCodeViewer extends PApplet {
 	private GCodeParser gcode; // An ArrayList of linesegments composing the model
 	private final int curScale = 1;
 	private final int curLayer = 0;
+	private final ColoringStyle style = ColoringStyle.DUALSTRUSION;
 
 	// //////////ALPHA VALUES//////////////
 
-	private final int TRANSPARENT = 20;
-	private final int SOLID = 100;
-	private final int SUPERSOLID = 255;
+	private final static int TRANSPARENT = 20;
+	private final static int SOLID = 100;
+	private final static int SUPERSOLID = 255;
 
 	// ////////////////////////////////////
 
 	// //////////COLOR VALUES/////////////
 
-	private final int RED = color(255, 200, 200);
-	private final int BLUE = color(0, 255, 255);
-	private final int PURPLE = color(242, 0, 255);
-	private final int YELLOW = color(237, 255, 0);
-	private final int OTHER_YELLOW = color(234, 212, 7);
-	private final int GREEN = color(33, 255, 0);
-	private final int WHITE = color(255, 255, 255);
+	private final static int RED = staticColor(255, 200, 200);
+	private final static int BLUE = staticColor(0, 255, 255);
+	private final static int PURPLE = staticColor(242, 0, 255);
+	private final static int YELLOW = staticColor(237, 255, 0);
+	private final static int OTHER_YELLOW = staticColor(234, 212, 7);
+	private final static int GREEN = staticColor(33, 255, 0);
+	private final static int WHITE = staticColor(255, 255, 255);
 
 	// ////////////////////////////////////
 
@@ -107,8 +150,8 @@ public class ProcessingGCodeViewer extends PApplet {
 		background(0); // Make background black
 
 		noSmooth();
-		// selectFile();
-		sourceFile = "C:/Users/thbrandston/Documents/dualcube.gcode";
+		selectFile();
+		// sourceFile = "C:/Users/thbrandston/Documents/5ddualcube.gcode";
 
 		if (sourceFile != null) {
 			generateObject();
@@ -145,7 +188,7 @@ public class ProcessingGCodeViewer extends PApplet {
 		// scale(1, -1, 1); // orient cooridnate plane right-handed props to
 		// whosawwhatsis for discovering this
 
-		gcode = new DefaultParser();
+		gcode = new MightyParser();
 		gcode.parse(readFiletoArrayList(sourceFile));
 		isDrawable = true;
 	}
@@ -167,72 +210,11 @@ public class ProcessingGCodeViewer extends PApplet {
 			int curColor = 255;
 
 			for (LineSegment ls : gcode.source.getSourceList()) {
-				// if (ls.getLayer() < maxLayer) {
-				curTransparency = SOLID;
-				// }
-				// if (ls.getLayer() == maxLayer) {
-				// curTransparency = SUPERSOLID;
-				// }
-				// if (ls.getLayer() > maxLayer) {
-				// curTransparency = TRANSPARENT;
-				// }
-				if (!ls.getExtruding()) {
-					stroke(WHITE, TRANSPARENT);
-				}
-				if (!dualExtrusionColoring) {
-					if (ls.getExtruding()) {
-						if (isSpeedColored) {
-							if (ls.getSpeed() > LOW_SPEED && ls.getSpeed() < MEDIUM_SPEED) {
-								stroke(PURPLE, curTransparency);
-							}
-							if (ls.getSpeed() > MEDIUM_SPEED && ls.getSpeed() < HIGH_SPEED) {
-								stroke(BLUE, curTransparency);
-							} else if (ls.getSpeed() >= HIGH_SPEED) {
-								stroke(OTHER_YELLOW, curTransparency);
-							} else // Very low speed....
-							{
-								stroke(GREEN, curTransparency);
-							}
-						}
-						if (!isSpeedColored) {
-							if (curColor == 0) {
-								stroke(GREEN, SUPERSOLID);
-							}
-							if (curColor == 1) {
-								stroke(RED, SUPERSOLID);
-							}
-							if (curColor == 2) {
-								stroke(BLUE, SUPERSOLID);
-							}
-							if (curColor == 3) {
-								stroke(YELLOW, SUPERSOLID);
-							}
-							curColor++;
-							if (curColor == 4) {
-								curColor = 0;
-							}
-						}
-					}
-				}
-				if (dualExtrusionColoring) {
-					if (ls.getExtruding()) {
-						if (ls.getToolhead() == 0) {
-							stroke(BLUE, curTransparency);
-						}
-						if (ls.getToolhead() == 1) {
-							stroke(GREEN, curTransparency);
-						}
-					}
-				}
+				stroke(style.getColor(ls));
 
 				// if (!is2D || (ls.getLayer() == maxLayer)) {
 				points = ls.getPoints(curScale);
-				//
-				// // vertex(points[0],points[1],points[2],points[3],
-				// // points[4], points[5]);
-				// vertex(points[0], points[1], points[2]);
-				// vertex(points[3], points[4], points[5]);
-				// }
+
 				line(points[0], points[1], points[2], points[3], points[4], points[5]);
 			}
 			// endShape();

@@ -1,4 +1,4 @@
-package replicatorg.app.gcode;
+package replicatorg;
 
 import java.util.ArrayList;
 import java.util.Iterator;

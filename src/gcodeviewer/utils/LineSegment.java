@@ -4,11 +4,11 @@ public class LineSegment {
 
 	private final int layer;
 	private int toolhead = 0; // DEFAULT TOOLHEAD ASSUMED TO BE 0!
-	private final Point5f first, second;
+	private final Point5d first, second;
 	private final boolean isExtruding;
 	private final float extrusionSpeed;
 
-	public LineSegment(Point5f lastPoint, Point5f curPoint, int curLayer, float speed,
+	public LineSegment(Point5d lastPoint, Point5d curPoint, int curLayer, float speed,
 			int curToolhead, boolean currentExtruding) {
 
 		first = lastPoint;
@@ -19,19 +19,20 @@ public class LineSegment {
 		isExtruding = currentExtruding;
 	}
 
-	public Point5f[] getPointArray() {
-		Point5f[] pointarr = { first, second };
+	public Point5d[] getPointArray() {
+		Point5d[] pointarr = { first, second };
 		return pointarr;
 	}
 
 	public float[] getPoints() {
-		float[] points = { first.x, first.y, first.z, second.x, second.y, second.z };
+		float[] points = { first.xf(), first.yf(), first.zf(), second.xf(), second.yf(),
+				second.zf() };
 		return points;
 	}
 
 	public float[] getPoints(float scale) {
-		float[] points = { first.x * scale, first.y * scale, first.z * scale, second.x * scale,
-				second.y * scale, second.z * scale };
+		float[] points = { first.xf() * scale, first.yf() * scale, first.zf() * scale,
+				second.xf() * scale, second.yf() * scale, second.zf() * scale };
 		return points;
 	}
 
