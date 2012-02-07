@@ -58,13 +58,6 @@ public class MightyParser extends GCodeParser {
 
 	Point5d stepsPerMM = new Point5d(95, 95, 400, 95, 95);
 
-	Point5d[] offsetSystems = new Point5d[7];
-	{
-		for (int i = 0; i < offsetSystems.length; i++)
-			offsetSystems[i] = new Point5d();
-	}
-	Point5d currentOffset = offsetSystems[0];
-
 	@Override
 	public void parse(ArrayList<String> gcode) {
 		source = new GCodeSource();
@@ -269,11 +262,6 @@ public class MightyParser extends GCodeParser {
 		// Note: The E axis is treated internally as the A or B axis
 		double eVal = convertToMM(gcode.getCodeValue('E'), units); // / E units
 
-		// adjust for our offsets
-		xVal += currentOffset.x();
-		yVal += currentOffset.y();
-		zVal += currentOffset.z();
-
 		// absolute just specifies the new position
 		if (absoluteMode) {
 			if (gcode.hasCode('X'))
@@ -373,24 +361,7 @@ public class MightyParser extends GCodeParser {
 		case G4:
 			break;
 		case G10:
-			if (gcode.hasCode('P')) {
-				int offsetSystemNum = ((int) gcode.getCodeValue('P'));
-				if (offsetSystemNum >= 0 && offsetSystemNum <= 6) {
-					if (gcode.hasCode('X'))
-						offsetSystems[offsetSystemNum].setX(gcode.getCodeValue('X'));
-					if (gcode.hasCode('Y'))
-						offsetSystems[offsetSystemNum].setY(gcode.getCodeValue('Y'));
-					if (gcode.hasCode('Z'))
-						offsetSystems[offsetSystemNum].setZ(gcode.getCodeValue('Z'));
-					if (!gcode.hasCode('X') && !gcode.hasCode('Y') && !gcode.hasCode('Z')) {
-						offsetSystems[offsetSystemNum].setX(gcode.getCodeValue('X'));
-						offsetSystems[offsetSystemNum].setY(gcode.getCodeValue('Y'));
-						offsetSystems[offsetSystemNum].setZ(gcode.getCodeValue('Z'));
-					}
-					System.out.println("Setting offset " + offsetSystemNum + "="
-							+ offsetSystems[offsetSystemNum]);
-				}
-			}
+
 			break;
 		// Inches for Units
 		case G20:
@@ -443,59 +414,24 @@ public class MightyParser extends GCodeParser {
 			break;
 		// master offset
 		case G53:
-			current.sub(currentOffset);
-			currentOffset = offsetSystems[0];
-			current.add(currentOffset);
-			source.add(createLineSegment(false));
-			System.out.println("Switching to offset " + currentOffset);
 			break;
 		// fixture offset 1
 		case G54:
-			current.sub(currentOffset);
-			currentOffset = offsetSystems[1];
-			current.add(currentOffset);
-			source.add(createLineSegment(false));
-			System.out.println("Switching to offset " + currentOffset);
 			break;
 		// fixture offset 2
 		case G55:
-			current.sub(currentOffset);
-			currentOffset = offsetSystems[2];
-			current.add(currentOffset);
-			source.add(createLineSegment(false));
-			System.out.println("Switching to offset " + currentOffset);
 			break;
 		// fixture offset 3
 		case G56:
-			current.sub(currentOffset);
-			currentOffset = offsetSystems[3];
-			current.add(currentOffset);
-			source.add(createLineSegment(false));
-			System.out.println("Switching to offset " + currentOffset);
 			break;
 		// fixture offset 4
 		case G57:
-			current.sub(currentOffset);
-			currentOffset = offsetSystems[4];
-			current.add(currentOffset);
-			source.add(createLineSegment(false));
-			System.out.println("Switching to offset " + currentOffset);
 			break;
 		// fixture offset 5
 		case G58:
-			current.sub(currentOffset);
-			currentOffset = offsetSystems[5];
-			current.add(currentOffset);
-			source.add(createLineSegment(false));
-			System.out.println("Switching to offset " + currentOffset);
 			break;
 		// fixture offset 6
 		case G59:
-			current.sub(currentOffset);
-			currentOffset = offsetSystems[6];
-			current.add(currentOffset);
-			source.add(createLineSegment(false));
-			System.out.println("Switching to offset " + currentOffset);
 			break;
 		// Absolute Positioning
 		case G90:
