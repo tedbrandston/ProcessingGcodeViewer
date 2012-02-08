@@ -1,4 +1,4 @@
-package gcodeviewer;
+package gcodeviewer.visualizers;
 
 import gcodeviewer.toolpath.GCodeEventToolpath;
 import processing.core.PGraphics;

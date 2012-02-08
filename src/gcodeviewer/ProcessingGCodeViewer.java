@@ -20,6 +20,7 @@ package gcodeviewer;
 import gcodeviewer.parsers.GCodeParser;
 import gcodeviewer.parsers.MightyParser;
 import gcodeviewer.visualizers.DualstrusionVisualizer;
+import gcodeviewer.visualizers.GCodeVisualizer;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -85,6 +86,7 @@ public class ProcessingGCodeViewer extends PApplet {
 	public void generate() {
 		parser.parse(readFiletoArrayList(sourceFile));
 		visualizer.setToolpath(parser.getPath());
+//		new HugosThing().writeToScad(parser.getPath());
 	}
 	
 	public void selectFile() {
@@ -117,4 +119,8 @@ public class ProcessingGCodeViewer extends PApplet {
 		vect = new ArrayList<String>(Arrays.asList(lines));
 		return vect;
 	}
+	
+//	public void writeArrayListToFile(String path, ArrayList<String> list) {
+//		saveStrings(path);
+//	}
 }

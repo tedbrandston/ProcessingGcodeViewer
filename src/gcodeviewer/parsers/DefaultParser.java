@@ -21,7 +21,7 @@ public class DefaultParser extends GCodeParser {
 		float parsedX, parsedY, parsedZ, parsedF;
 		
 		float[] lastCoord = { 0.0f, 0.0f, 0.0f };
-		boolean currentExtruding = false;
+		
 		for (String s : gcode) {
 			if (s.matches(".*M101.*")) {
 				path.addEvent(new StartExtrusion(ToolModel.MOTOR_CLOCKWISE));

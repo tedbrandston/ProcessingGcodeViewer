@@ -1,6 +1,5 @@
 package gcodeviewer.visualizers;
 
-import gcodeviewer.GCodeVisualizer;
 import gcodeviewer.toolpath.GCodeEvent;
 import gcodeviewer.toolpath.GCodeEventToolpath;
 import gcodeviewer.toolpath.events.MoveTo;
@@ -14,10 +13,10 @@ import java.util.ArrayList;
 import processing.core.PGraphics;
 import replicatorg.ToolheadAlias;
 
-public class DualstrusionVisualizer extends GCodeVisualizer {
+public class DualstrusionVisualizer extends GCodeVisualizer implements LayerAware {
 
-	private static final int T0_COLOR = color(32, 255, 128, 192);
-	private static final int T1_COLOR = color(32, 128, 255, 192);
+	private static final int T0_COLOR = color(32, 255, 128, 128);
+	private static final int T1_COLOR = color(32, 128, 255, 128);
 	
 	private ArrayList<LineSegment> lines;
 	private boolean ready = false;
@@ -58,6 +57,23 @@ public class DualstrusionVisualizer extends GCodeVisualizer {
 		}
 		lines.trimToSize();
 		ready = true;
+	}
+
+	private final LayerAwareImpl layers = new LayerAwareImpl();
+	
+	@Override
+	public void setMinimumLayer(float min) {
+		layers.setMinimumLayer(min);
+	}
+
+	@Override
+	public void setMaximumLayer(float max) {
+		layers.setMaximumLayer(max);
+	}
+
+	@Override
+	public int getNumLayers() {
+		return layers.getNumLayers();
 	}
 
 }
