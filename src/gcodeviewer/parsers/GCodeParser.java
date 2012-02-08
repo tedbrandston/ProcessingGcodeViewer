@@ -1,16 +1,17 @@
 package gcodeviewer.parsers;
 
-import gcodeviewer.utils.Bounds;
-import gcodeviewer.utils.GCodeSource;
+import gcodeviewer.toolpath.GCodeEventToolpath;
 
 import java.util.ArrayList;
 
 public abstract class GCodeParser {
 
-	public Bounds bounds = new Bounds();
-
-	public GCodeSource source;
+	// public GCodeSource source;
+	protected final GCodeEventToolpath path = new GCodeEventToolpath();
 
 	public abstract void parse(ArrayList<String> gcode);
 
+	public GCodeEventToolpath getPath() {
+		return path;
+	}
 }

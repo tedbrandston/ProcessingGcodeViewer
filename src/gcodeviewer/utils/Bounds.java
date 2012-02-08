@@ -3,14 +3,14 @@ package gcodeviewer.utils;
 public class Bounds {
 
 	// these define a BoundingBox
-	Point5d lower, upper;
+	MutablePoint5d lower, upper;
 
 	// this is a bounding sphere
 	float radius;
 
 	public Bounds() {
-		lower = new Point5d(Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE);
-		upper = new Point5d(Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE);
+		lower = new MutablePoint5d(Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE);
+		upper = new MutablePoint5d(Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE);
 		radius = 1;
 	}
 

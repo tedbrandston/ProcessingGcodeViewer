@@ -1,42 +1,42 @@
 package gcodeviewer.parsers;
 
-import gcodeviewer.utils.GCodeSource;
-import gcodeviewer.utils.LineSegment;
-import gcodeviewer.utils.Point5d;
+import gcodeviewer.toolpath.events.EndExtrusion;
+import gcodeviewer.toolpath.events.MoveTo;
+import gcodeviewer.toolpath.events.NewLayer;
+import gcodeviewer.toolpath.events.SetFeedrate;
+import gcodeviewer.toolpath.events.SetToolhead;
+import gcodeviewer.toolpath.events.StartExtrusion;
+import gcodeviewer.utils.MutablePoint5d;
 
 import java.util.ArrayList;
 
-public class DefaultParser extends GCodeParser {
+import replicatorg.ToolModel;
+import replicatorg.ToolheadAlias;
 
-	private static boolean debugVals = false;
+public class DefaultParser extends GCodeParser {
 
 	@Override
 	public void parse(ArrayList<String> gcode) {
-		float speed = 2; // DEFAULTS to 2
-		Point5d lastPoint = null;
-		Point5d curPoint = null;
-		int curLayer = 0;
-		int curToolhead = 0;
+		MutablePoint5d curPoint = null;
 		float parsedX, parsedY, parsedZ, parsedF;
-
-		source = new GCodeSource();
+		
 		float[] lastCoord = { 0.0f, 0.0f, 0.0f };
 		boolean currentExtruding = false;
 		for (String s : gcode) {
 			if (s.matches(".*M101.*")) {
-				currentExtruding = true;
+				path.addEvent(new StartExtrusion(ToolModel.MOTOR_CLOCKWISE));
 			}
 			if (s.matches(".*M103.*")) {
-				currentExtruding = false;
+				path.addEvent(new EndExtrusion());
 			}
 			if (s.matches("\\(\\</layer\\>\\)")) {
-				curLayer++;
+				path.addEvent(new NewLayer());
 			}
 			if (s.matches(".*T0.*")) {
-				curToolhead = 0;
+				path.addEvent(new SetToolhead(ToolheadAlias.RIGHT));
 			}
 			if (s.matches(".*T1.*")) {
-				curToolhead = 1;
+				path.addEvent(new SetToolhead(ToolheadAlias.LEFT));
 			}
 			if (s.matches(".*G1.*")) {
 				String[] sarr = s.split(" ");
@@ -60,28 +60,19 @@ public class DefaultParser extends GCodeParser {
 
 				}
 				if (!Float.isNaN(parsedF)) {
-					speed = parsedF;
+					path.addEvent(new SetFeedrate(parsedF));
 				}
 				if (!(Float.isNaN(lastCoord[0]) || Float.isNaN(lastCoord[1]) || Float
 						.isNaN(lastCoord[2]))) {
 
-					if (debugVals) {
-						System.out.println(lastCoord[0] + "," + lastCoord[1] + "," + lastCoord[2]
-								+ ", speed =" + speed + ", layer=" + curLayer);
-					}
-					curPoint = new Point5d(lastCoord[0], lastCoord[1], lastCoord[2]);
-					if (currentExtruding && curLayer > 5) {
-						bounds.add(curPoint);
-					}
-					if (lastPoint != null) {
-						source.add(new LineSegment(lastPoint, curPoint, curLayer, speed,
-								curToolhead, currentExtruding));
-					}
-					lastPoint = curPoint;
+					curPoint = new MutablePoint5d(lastCoord[0], lastCoord[1], lastCoord[2]);
+					
+					path.addEvent(new MoveTo(curPoint));
 				}
 			}
 
 		}
+		path.finish();
 
 	}
 

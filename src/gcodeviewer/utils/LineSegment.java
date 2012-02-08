@@ -1,55 +1,21 @@
 package gcodeviewer.utils;
 
-public class LineSegment {
+import processing.core.PGraphics;
 
-	private final int layer;
-	private int toolhead = 0; // DEFAULT TOOLHEAD ASSUMED TO BE 0!
+public final class LineSegment {
+
 	private final Point5d first, second;
-	private final boolean isExtruding;
-	private final float extrusionSpeed;
-
-	public LineSegment(Point5d lastPoint, Point5d curPoint, int curLayer, float speed,
-			int curToolhead, boolean currentExtruding) {
-
-		first = lastPoint;
-		second = curPoint;
-		layer = curLayer;
-		extrusionSpeed = speed;
-		toolhead = curToolhead;
-		isExtruding = currentExtruding;
+	private final int color;
+	
+	public LineSegment(Point5d first, Point5d second, int color) {
+		this.first = first;
+		this.second = second;
+		this.color = color;
 	}
-
-	public Point5d[] getPointArray() {
-		Point5d[] pointarr = { first, second };
-		return pointarr;
+	
+	public void draw(PGraphics g) {
+		g.stroke(color);
+		g.line(first.xf(), first.yf(), first.zf(), second.xf(), second.yf(), second.zf());
 	}
-
-	public float[] getPoints() {
-		float[] points = { first.xf(), first.yf(), first.zf(), second.xf(), second.yf(),
-				second.zf() };
-		return points;
-	}
-
-	public float[] getPoints(float scale) {
-		float[] points = { first.xf() * scale, first.yf() * scale, first.zf() * scale,
-				second.xf() * scale, second.yf() * scale, second.zf() * scale };
-		return points;
-	}
-
-	public int getToolhead() {
-		return toolhead;
-	}
-
-	public float getSpeed() {
-		return extrusionSpeed;
-	}
-
-	public int getLayer() {
-		return layer;
-	}
-
-	public boolean getExtruding() {
-		return isExtruding;
-	}
-
+	
 }

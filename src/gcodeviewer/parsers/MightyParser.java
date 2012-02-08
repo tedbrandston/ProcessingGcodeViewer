@@ -1,8 +1,17 @@
 package gcodeviewer.parsers;
 
-import gcodeviewer.utils.GCodeSource;
-import gcodeviewer.utils.LineSegment;
-import gcodeviewer.utils.Point5d;
+import gcodeviewer.toolpath.events.EndExtrusion;
+import gcodeviewer.toolpath.events.MoveTo;
+import gcodeviewer.toolpath.events.SetFeedrate;
+import gcodeviewer.toolpath.events.SetMotorSpeedPWM;
+import gcodeviewer.toolpath.events.SetMotorSpeedRPM;
+import gcodeviewer.toolpath.events.SetPlatformTemp;
+import gcodeviewer.toolpath.events.SetPosition;
+import gcodeviewer.toolpath.events.SetToolhead;
+import gcodeviewer.toolpath.events.SetToolheadTemp;
+import gcodeviewer.toolpath.events.StartExtrusion;
+import gcodeviewer.toolpath.events.UnrecognisedCode;
+import gcodeviewer.utils.MutablePoint5d;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -12,19 +21,20 @@ import replicatorg.AxisId;
 import replicatorg.GCodeCommand;
 import replicatorg.GCodeEnumeration;
 import replicatorg.ToolModel;
+import replicatorg.ToolheadAlias;
 
 public class MightyParser extends GCodeParser {
 
 	// our current position
-	Point5d prev, current;
+	MutablePoint5d current;
 
 	// not sure if I need these?
-	Point5d home;
+	MutablePoint5d home;
 
 	// for homing
-	Point5d endstopsMax = new Point5d(227, 148, Double.MAX_VALUE, Double.MAX_VALUE,
+	MutablePoint5d endstopsMax = new MutablePoint5d(227, 148, Double.MAX_VALUE, Double.MAX_VALUE,
 			Double.MAX_VALUE);
-	Point5d endstopsMin = new Point5d(Double.MIN_VALUE, Double.MIN_VALUE, 150, Double.MIN_VALUE,
+	MutablePoint5d endstopsMin = new MutablePoint5d(Double.MIN_VALUE, Double.MIN_VALUE, 150, Double.MIN_VALUE,
 			Double.MIN_VALUE);
 
 	// false = incremental; true = absolute
@@ -38,6 +48,8 @@ public class MightyParser extends GCodeParser {
 	{
 		LEFT.setIndex(1);
 		RIGHT.setIndex(0);
+		LEFT.setToolheadAlias(ToolheadAlias.LEFT);
+		RIGHT.setToolheadAlias(ToolheadAlias.RIGHT);
 	}
 	// current selected tool
 	private ToolModel tool = RIGHT;
@@ -46,24 +58,26 @@ public class MightyParser extends GCodeParser {
 	public static final int UNITS_MM = 0;
 	public static final int UNITS_INCHES = 1;
 	protected int units = UNITS_MM;
-
-	public static final int CLOCKWISE = 0;
-	public static final int COUNTERCLOCKWISE = 1;
-
+	
+	MutablePoint5d[] offsetSystems = new MutablePoint5d[7];
+	{
+		for (int i = 0; i < offsetSystems.length; i++)
+	    	offsetSystems[i] = new MutablePoint5d();
+	}
+	MutablePoint5d currentOffset = offsetSystems[0];
+	  
 	EnumMap<AxisId, ToolModel> extruderHijackedMap = new EnumMap<AxisId, ToolModel>(AxisId.class);
 	{
 		extruderHijackedMap.put(AxisId.A, RIGHT);
 		extruderHijackedMap.put(AxisId.B, LEFT);
 	}
 
-	Point5d stepsPerMM = new Point5d(95, 95, 400, 95, 95);
+	MutablePoint5d stepsPerMM = new MutablePoint5d(95, 95, 400, 95, 95);
 
 	@Override
 	public void parse(ArrayList<String> gcode) {
-		source = new GCodeSource();
 
-		current = new Point5d();
-		prev = new Point5d();
+		current = new MutablePoint5d();
 
 		boolean abort = false;
 		for (String line : gcode) {
@@ -77,8 +91,9 @@ public class MightyParser extends GCodeParser {
 				abort = buildMCodes(cmd);
 			}
 			if (abort)
-				return;
+				break;
 		}
+		path.finish();
 	}
 
 	private boolean buildMCodes(GCodeCommand gcode) {
@@ -93,12 +108,15 @@ public class MightyParser extends GCodeParser {
 				tool = LEFT;
 			if (((int) gcode.getCodeValue('T')) == RIGHT.getIndex())
 				tool = RIGHT;
+			path.addEvent(new SetToolhead(tool.getAlias()));
 		}
 
 		// handle unrecognised GCode
 		if (GCodeEnumeration.getGCode("M", (int) gcode.getCodeValue('M')) == null) {
 			String message = "Unrecognized MCode! M" + (int) gcode.getCodeValue('M');
 			System.err.println(message);
+			path.addEvent(new UnrecognisedCode(gcode.getCommand()));
+			return false;
 		}
 
 		switch (GCodeEnumeration.getGCode("M", (int) gcode.getCodeValue('M'))) {
@@ -133,22 +151,27 @@ public class MightyParser extends GCodeParser {
 			break;
 		// turn extruder on, forward
 		case M101:
-			tool.setMotorDirection(CLOCKWISE);
+			tool.setMotorDirection(ToolModel.MOTOR_CLOCKWISE);
 			tool.enableMotor();
+			path.addEvent(new StartExtrusion(ToolModel.MOTOR_CLOCKWISE));
 			break;
 		// turn extruder on, reverse
 		case M102:
-			tool.setMotorDirection(COUNTERCLOCKWISE);
+			tool.setMotorDirection(ToolModel.MOTOR_COUNTER_CLOCKWISE);
 			tool.enableMotor();
+			path.addEvent(new StartExtrusion(ToolModel.MOTOR_COUNTER_CLOCKWISE));
 			break;
 		// turn extruder off
 		case M103:
 			tool.disableMotor();
+			path.addEvent(new EndExtrusion());
 			break;
 		// custom code for temperature control
 		case M104:
-			if (gcode.hasCode('S'))
+			if (gcode.hasCode('S')) {
 				tool.setCurrentTemperature(gcode.getCodeValue('S'));
+				path.addEvent(new SetToolheadTemp(tool.getCurrentTemperature()));
+			}
 			break;
 		case M105:
 			break;
@@ -160,13 +183,21 @@ public class MightyParser extends GCodeParser {
 			break;
 		// set max extruder speed, RPM
 		case M108:
-			if (gcode.hasCode('S'))
+			if (gcode.hasCode('S')) {
 				tool.setMotorSpeedPWM((int) gcode.getCodeValue('S'));
-			else if (gcode.hasCode('R'))
+				path.addEvent(new SetMotorSpeedPWM(tool.getMotorSpeedPWM()));
+			}
+			else if (gcode.hasCode('R')) {
 				tool.setMotorSpeedRPM(gcode.getCodeValue('R'));
+				path.addEvent(new SetMotorSpeedRPM(tool.getMotorSpeedRPM()));
+			}
 			break;
 		// set build platform temperature
 		case M109:
+			if (gcode.hasCode('S')) {
+				tool.setPlatformCurrentTemperature(gcode.getCodeValue('S'));
+				path.addEvent(new SetPlatformTemp(tool.getPlatformCurrentTemperature()));
+			}
 		case M140: // skeinforge chamber code for HBP
 			break;
 		// set build chamber temperature
@@ -185,7 +216,7 @@ public class MightyParser extends GCodeParser {
 		case M131: { // these braces provide a new level of scope to avoid name clash on axes
 			EnumSet<AxisId> axes = getAxes(gcode);
 			if (home == null)
-				home = new Point5d();
+				home = new MutablePoint5d();
 
 			if (axes.contains(AxisId.X))
 				home.setX(current.x());
@@ -214,6 +245,7 @@ public class MightyParser extends GCodeParser {
 					current.setA(home.a());
 				if (axes.contains(AxisId.B))
 					current.setB(home.b());
+				path.addEvent(new SetPosition(current));
 			}
 			break;
 		// Silently ignore these
@@ -243,7 +275,8 @@ public class MightyParser extends GCodeParser {
 			break;
 		default:
 			System.err.print("Unrecognized GCode" + gcode);
-			return true;
+			path.addEvent(new UnrecognisedCode(gcode.getCommand()));
+			return false;
 		}
 		return false;
 	}
@@ -251,7 +284,7 @@ public class MightyParser extends GCodeParser {
 	private boolean buildGCodes(GCodeCommand gcode) {
 
 		// start us off at our current position...
-		Point5d pos = new Point5d(current);
+		MutablePoint5d pos = new MutablePoint5d(current);
 
 		// initialize our points, etc.
 		double xVal = convertToMM(gcode.getCodeValue('X'), units); // / X units
@@ -261,7 +294,7 @@ public class MightyParser extends GCodeParser {
 		double bVal = convertToMM(gcode.getCodeValue('B'), units); // / B units
 		// Note: The E axis is treated internally as the A or B axis
 		double eVal = convertToMM(gcode.getCodeValue('E'), units); // / E units
-
+		
 		// absolute just specifies the new position
 		if (absoluteMode) {
 			if (gcode.hasCode('X'))
@@ -305,6 +338,7 @@ public class MightyParser extends GCodeParser {
 		if (gcode.hasCode('F')) {
 			// Read feedrate in mm/min.
 			feedrate = gcode.getCodeValue('F');
+			path.addEvent(new SetFeedrate(feedrate));
 		}
 
 		GCodeEnumeration codeEnum = GCodeEnumeration.getGCode("G", (int) gcode.getCodeValue('G'));
@@ -313,6 +347,8 @@ public class MightyParser extends GCodeParser {
 		if (codeEnum == null) {
 			String message = "Unrecognized GCode! G" + (int) gcode.getCodeValue('G');
 			System.err.println(message);
+			path.addEvent(new UnrecognisedCode(gcode.getCommand()));
+			return false;
 		}
 
 		switch (codeEnum) {
@@ -324,12 +360,12 @@ public class MightyParser extends GCodeParser {
 				// already did it
 			} else {
 				// Compute the most rapid possible rate for this move.
-				Point5d diff = current;
+				MutablePoint5d diff = current;
 				diff.sub(pos);
 				diff.absolute();
 				double length = diff.length();
 				double selectedFR = Double.MAX_VALUE;
-				Point5d maxFR = new Point5d(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE,
+				MutablePoint5d maxFR = new MutablePoint5d(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE,
 						Double.MAX_VALUE, Double.MAX_VALUE);
 				// Compute the feedrate using assuming maximum feed along each axis, and select
 				// the slowest option.
@@ -348,6 +384,7 @@ public class MightyParser extends GCodeParser {
 					selectedFR = maxFR.get(0);
 				}
 				feedrate = selectedFR;
+				path.addEvent(new SetFeedrate(feedrate));
 			}
 			queuePoint(pos);
 			break;
@@ -361,7 +398,22 @@ public class MightyParser extends GCodeParser {
 		case G4:
 			break;
 		case G10:
-
+			if (gcode.hasCode('P')) {
+				int offsetSystemNum = ((int) gcode.getCodeValue('P'));
+				if (offsetSystemNum >= 0 && offsetSystemNum <= 6) {
+						if (gcode.hasCode('X'))
+							offsetSystems[offsetSystemNum].setX(gcode.getCodeValue('X'));
+						if (gcode.hasCode('Y'))
+							offsetSystems[offsetSystemNum].setY(gcode.getCodeValue('Y'));
+						if (gcode.hasCode('Z'))
+							offsetSystems[offsetSystemNum].setZ(gcode.getCodeValue('Z'));
+						if (!gcode.hasCode('X') && !gcode.hasCode('Y') && !gcode.hasCode('Z')) {
+							offsetSystems[offsetSystemNum].setX(gcode.getCodeValue('X'));
+							offsetSystems[offsetSystemNum].setY(gcode.getCodeValue('Y'));
+							offsetSystems[offsetSystemNum].setZ(gcode.getCodeValue('Z'));
+					}
+				}
+			}
 			break;
 		// Inches for Units
 		case G20:
@@ -390,7 +442,7 @@ public class MightyParser extends GCodeParser {
 				current.setA(endstopsMax.a());
 			if (axes.contains(AxisId.B))
 				current.setB(endstopsMax.b());
-			source.add(createLineSegment(tool.isMotorEnabled()));
+			path.addEvent(new MoveTo(current));
 		}
 			break;
 		// New code: home negative.
@@ -409,29 +461,57 @@ public class MightyParser extends GCodeParser {
 			if (axes.contains(AxisId.B))
 				current.setB(endstopsMin.b());
 
-			source.add(createLineSegment(tool.isMotorEnabled()));
+			path.addEvent(new MoveTo(current));
 		}
 			break;
 		// master offset
 		case G53:
+			current.sub(currentOffset);
+			currentOffset = offsetSystems[0];
+			current.add(currentOffset);
+			path.addEvent(new SetPosition(current));
 			break;
 		// fixture offset 1
 		case G54:
+			current.sub(currentOffset);
+			currentOffset = offsetSystems[1];
+			current.add(currentOffset);
+			path.addEvent(new SetPosition(current));
 			break;
 		// fixture offset 2
 		case G55:
+			current.sub(currentOffset);
+			currentOffset = offsetSystems[2];
+			current.add(currentOffset);
+			path.addEvent(new SetPosition(current));
 			break;
 		// fixture offset 3
 		case G56:
+			current.sub(currentOffset);
+			currentOffset = offsetSystems[3];
+			current.add(currentOffset);
+			path.addEvent(new SetPosition(current));
 			break;
 		// fixture offset 4
 		case G57:
+			current.sub(currentOffset);
+			currentOffset = offsetSystems[4];
+			current.add(currentOffset);
+			path.addEvent(new SetPosition(current));
 			break;
 		// fixture offset 5
 		case G58:
+			current.sub(currentOffset);
+			currentOffset = offsetSystems[5];
+			current.add(currentOffset);
+			path.addEvent(new SetPosition(current));
 			break;
 		// fixture offset 6
 		case G59:
+			current.sub(currentOffset);
+			currentOffset = offsetSystems[6];
+			current.add(currentOffset);
+			path.addEvent(new SetPosition(current));
 			break;
 		// Absolute Positioning
 		case G90:
@@ -456,14 +536,15 @@ public class MightyParser extends GCodeParser {
 				current.setA(eVal);
 			if (gcode.hasCode('B'))
 				current.setB(bVal);
-			source.add(createLineSegment(tool.isMotorEnabled()));
+			path.addEvent(new SetPosition(current));
 			break;
 		case G130:
 			break;
 		// error, error!
 		default:
 			System.err.print("Unrecognized GCode" + gcode);
-			return true;
+			path.addEvent(new UnrecognisedCode(gcode.getCommand()));
+			return false;
 		}
 		return false;
 	}
@@ -492,10 +573,10 @@ public class MightyParser extends GCodeParser {
 		return axes;
 	}
 
-	public double getSafeFeedrate(Point5d delta) {
+	public double getSafeFeedrate(MutablePoint5d delta) {
 		double feedrateTmp = feedrate;
 
-		Point5d maxFeedrates = new Point5d(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE,
+		MutablePoint5d maxFeedrates = new MutablePoint5d(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE,
 				Double.MAX_VALUE, Double.MAX_VALUE);
 
 		// System.out.println("max feedrates: " + maxFeedrates);
@@ -530,7 +611,7 @@ public class MightyParser extends GCodeParser {
 		return feedrateTmp;
 	}
 
-	public void queuePoint(final Point5d p) {
+	public void queuePoint(final MutablePoint5d p) {
 
 		/*
 		 * So, it looks like points specified in A/E/B commands turn in the opposite direction from
@@ -539,12 +620,12 @@ public class MightyParser extends GCodeParser {
 		 * I recieve all points as absolute values, and, really, all extruder values should be sent
 		 * as relative values, just in case we end up with an overflow?
 		 */
-		Point5d target = new Point5d(p);
+		MutablePoint5d target = new MutablePoint5d(p);
 		// is this point even step-worthy? Only compute nonzero moves
 		double deltaSteps = current.distance(target);
 		if (deltaSteps > 0.0) {
 			// relative motion in mm
-			Point5d deltaMM = new Point5d();
+			MutablePoint5d deltaMM = new MutablePoint5d();
 			deltaMM.sub(target, current); // delta = p - current
 
 			// A and B are always sent as relative, rec'd as absolute, so adjust our target
@@ -554,20 +635,20 @@ public class MightyParser extends GCodeParser {
 			target.setB(-deltaMM.b());
 
 			// calculate the time to make the move
-			Point5d delta3d = new Point5d();
+			MutablePoint5d delta3d = new MutablePoint5d();
 			delta3d.setX(deltaMM.x());
 			delta3d.setY(deltaMM.y());
 			delta3d.setZ(deltaMM.z());
-			double minutes = delta3d.distance(new Point5d()) / getSafeFeedrate(deltaMM);
+			double minutes = delta3d.distance(new MutablePoint5d()) / getSafeFeedrate(deltaMM);
 
 			// if minutes == 0 here, we know that this is just an extrusion in place
 			// so we need to figure out how long it will take
 			if (minutes == 0) {
-				Point5d delta2d = new Point5d();
+				MutablePoint5d delta2d = new MutablePoint5d();
 				delta2d.setA(deltaMM.a());
 				delta2d.setB(deltaMM.b());
 
-				minutes = delta2d.distance(new Point5d()) / getSafeFeedrate(deltaMM);
+				minutes = delta2d.distance(new MutablePoint5d()) / getSafeFeedrate(deltaMM);
 			}
 
 			// if either a or b is 0, but their motor is on, create a distance for them
@@ -596,21 +677,12 @@ public class MightyParser extends GCodeParser {
 
 			// because of the hinky stuff we've been doing with A & B axes, just pretend we've
 			// moved where we thought we were moving
-			Point5d fakeOut = new Point5d(target);
+			MutablePoint5d fakeOut = new MutablePoint5d(target);
 			fakeOut.setA(p.a());
 			fakeOut.setB(p.b());
 			current = fakeOut;
 
-			source.add(createLineSegment(target.a() != 0 || target.b() != 0));
-			System.out.println(target.a() != 0 || target.b() != 0);
+			path.addEvent(new MoveTo(current));
 		}
-	}
-
-	private LineSegment createLineSegment(boolean extruding) {
-		LineSegment result = new LineSegment(prev, current, 0, (float) feedrate, tool.getIndex(),
-				extruding);
-
-		prev = current;
-		return result;
 	}
 }

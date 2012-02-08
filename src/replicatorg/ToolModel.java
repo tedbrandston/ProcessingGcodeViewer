@@ -48,14 +48,13 @@ public class ToolModel {
 	// TODO: should this be a bitfield?
 	protected int toolStatus;
 
-	// our xml config info
-	protected Node xml;
 
 	// descriptive stuff
 	protected String name;
 	protected String toolClass;
 	protected String material;
 	protected int index;
+	protected ToolheadAlias toolheadAlias;
 	protected ToolheadType type = ToolheadType.UNKNOWN;
 
 	// motor stuff
@@ -548,13 +547,6 @@ public class ToolModel {
 		return hasCollet;
 	}
 
-	/**
-	 * Retrieve XML node. A temporary hack until new tool models.
-	 */
-	public Node getXml() {
-		return xml;
-	}
-
 	// returns true of an extruder has a thermocouple (implies it has a PID)
 	public boolean hasExtruderThermocouple() {
 		return true;
@@ -574,6 +566,14 @@ public class ToolModel {
 			return true;
 		// default to false, sice we don't know
 		return false;
+	}
+	
+	public void setToolheadAlias(ToolheadAlias alias) {
+		toolheadAlias = alias;
+	}
+	
+	public ToolheadAlias getAlias() {
+		return toolheadAlias;
 	}
 
 }
