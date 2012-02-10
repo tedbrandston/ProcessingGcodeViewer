@@ -1,14 +1,14 @@
 package gcodeviewer.parsers;
 
-import gcodeviewer.toolpath.events.EndExtrusion;
-import gcodeviewer.toolpath.events.MoveTo;
-import gcodeviewer.toolpath.events.NewLayer;
-import gcodeviewer.toolpath.events.SetFeedrate;
-import gcodeviewer.toolpath.events.SetToolhead;
-import gcodeviewer.toolpath.events.StartExtrusion;
+import gcodeviewer.toolpath.GCodeEvent.EndExtrusion;
+import gcodeviewer.toolpath.GCodeEvent.MoveTo;
+import gcodeviewer.toolpath.GCodeEvent.NewLayer;
+import gcodeviewer.toolpath.GCodeEvent.SetFeedrate;
+import gcodeviewer.toolpath.GCodeEvent.SetToolhead;
+import gcodeviewer.toolpath.GCodeEvent.StartExtrusion;
 import gcodeviewer.utils.MutablePoint5d;
 
-import java.util.ArrayList;
+import java.io.File;
 
 import replicatorg.ToolModel;
 import replicatorg.ToolheadAlias;
@@ -16,13 +16,13 @@ import replicatorg.ToolheadAlias;
 public class DefaultParser extends GCodeParser {
 
 	@Override
-	public void parse(ArrayList<String> gcode) {
+	public void parse(File gcode) {
 		MutablePoint5d curPoint = null;
 		float parsedX, parsedY, parsedZ, parsedF;
 		
 		float[] lastCoord = { 0.0f, 0.0f, 0.0f };
 		
-		for (String s : gcode) {
+		for (String s : readFile(gcode)) {
 			if (s.matches(".*M101.*")) {
 				path.addEvent(new StartExtrusion(ToolModel.MOTOR_CLOCKWISE));
 			}

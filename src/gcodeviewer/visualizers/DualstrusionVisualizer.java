@@ -1,10 +1,11 @@
 package gcodeviewer.visualizers;
 
 import gcodeviewer.toolpath.GCodeEvent;
+import gcodeviewer.toolpath.GCodeEvent.MoveTo;
+import gcodeviewer.toolpath.GCodeEvent.NewLayer;
+import gcodeviewer.toolpath.GCodeEvent.SetPosition;
+import gcodeviewer.toolpath.GCodeEvent.SetToolhead;
 import gcodeviewer.toolpath.GCodeEventToolpath;
-import gcodeviewer.toolpath.events.MoveTo;
-import gcodeviewer.toolpath.events.SetPosition;
-import gcodeviewer.toolpath.events.SetToolhead;
 import gcodeviewer.utils.LineSegment;
 import gcodeviewer.utils.Point5d;
 
@@ -17,6 +18,8 @@ public class DualstrusionVisualizer extends GCodeVisualizer implements LayerAwar
 
 	private static final int T0_COLOR = color(32, 255, 128, 128);
 	private static final int T1_COLOR = color(32, 128, 255, 128);
+
+	private final LayerAwareImpl layers = new LayerAwareImpl();
 	
 	private ArrayList<LineSegment> lines;
 	private boolean ready = false;
@@ -25,7 +28,9 @@ public class DualstrusionVisualizer extends GCodeVisualizer implements LayerAwar
 	public void draw(PGraphics g) {
 		if(ready) {
 			for(LineSegment ls : lines) {
-				ls.draw(g);
+				if(layers.checkSegment(ls)) {
+					ls.draw(g);
+				}
 			}
 		}
 	}
@@ -35,31 +40,38 @@ public class DualstrusionVisualizer extends GCodeVisualizer implements LayerAwar
 		ready = false;
 		super.setToolpath(toolpath);
 		
+		setMinimumLayer(0);
+		setMaximumLayer(toolpath.getNumLayers());
+		
 		lines = new ArrayList<LineSegment>();
 		
 		int color = T0_COLOR;
 		Point5d currentPos = new Point5d();
 		
 		for(GCodeEvent evt : toolpath.events()) {
+			
 			if(evt instanceof SetToolhead)
 				color = ( ((SetToolhead)evt).tool == ToolheadAlias.RIGHT ? T0_COLOR : T1_COLOR);
 
 			if(evt instanceof SetPosition)
 				currentPos = null;
 			
+			if(evt instanceof NewLayer)
+				layers.newLayer();
+			
 			if(evt instanceof MoveTo) {
 				Point5d newPos = ((MoveTo)evt).point;
 				if(currentPos == null)
 					currentPos = newPos;
-				lines.add(new LineSegment(currentPos, newPos, color));
+				LineSegment newSegment = new LineSegment(currentPos, newPos, color);
+				lines.add(newSegment);
+				layers.registerLineSegment(newSegment);
 				currentPos = newPos;
 			}
 		}
 		lines.trimToSize();
 		ready = true;
 	}
-
-	private final LayerAwareImpl layers = new LayerAwareImpl();
 	
 	@Override
 	public void setMinimumLayer(float min) {

@@ -17,12 +17,13 @@ public interface LayerAware {
 	public class LayerAwareImpl implements LayerAware {
 
 		private Integer numLayers = 0;
-		protected float min, max, current;
+		protected float min = 0, max = 0;
 		
 		// layer registration
 		private final Map<LineSegment, Integer> layers = new HashMap<LineSegment, Integer>(100);
 		private boolean newlayer = true;
-//		private int 
+		
+		private int currentLayer = 0;
 		
 		public void newLayer() {
 			// the next segment will start a new layer
@@ -33,11 +34,16 @@ public interface LayerAware {
 			if(newlayer) {
 				layers.put(ls, numLayers);
 				numLayers++;
+				newlayer = false;
 			}
 		}
 		
 		public boolean checkSegment(LineSegment ls) {
-			return false;
+			if(layers.containsKey(ls))
+				currentLayer = layers.get(ls);
+			
+			// if min <= currentLayer <= max 
+			return min <= currentLayer && currentLayer <= max;
 		}
 		
 		

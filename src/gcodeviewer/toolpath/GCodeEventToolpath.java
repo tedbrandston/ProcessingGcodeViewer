@@ -1,7 +1,7 @@
 package gcodeviewer.toolpath;
 
-import gcodeviewer.toolpath.events.MoveTo;
-import gcodeviewer.toolpath.events.NewLayer;
+import gcodeviewer.toolpath.GCodeEvent.MoveTo;
+import gcodeviewer.toolpath.GCodeEvent.NewLayer;
 import gcodeviewer.utils.Bounds;
 
 import java.util.ArrayList;

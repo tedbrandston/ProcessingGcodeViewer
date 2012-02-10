@@ -1,19 +1,20 @@
 package gcodeviewer.parsers;
 
-import gcodeviewer.toolpath.events.EndExtrusion;
-import gcodeviewer.toolpath.events.MoveTo;
-import gcodeviewer.toolpath.events.SetFeedrate;
-import gcodeviewer.toolpath.events.SetMotorSpeedPWM;
-import gcodeviewer.toolpath.events.SetMotorSpeedRPM;
-import gcodeviewer.toolpath.events.SetPlatformTemp;
-import gcodeviewer.toolpath.events.SetPosition;
-import gcodeviewer.toolpath.events.SetToolhead;
-import gcodeviewer.toolpath.events.SetToolheadTemp;
-import gcodeviewer.toolpath.events.StartExtrusion;
-import gcodeviewer.toolpath.events.UnrecognisedCode;
+import gcodeviewer.toolpath.GCodeEvent.EndExtrusion;
+import gcodeviewer.toolpath.GCodeEvent.MoveTo;
+import gcodeviewer.toolpath.GCodeEvent.NewLayer;
+import gcodeviewer.toolpath.GCodeEvent.SetFeedrate;
+import gcodeviewer.toolpath.GCodeEvent.SetMotorSpeedPWM;
+import gcodeviewer.toolpath.GCodeEvent.SetMotorSpeedRPM;
+import gcodeviewer.toolpath.GCodeEvent.SetPlatformTemp;
+import gcodeviewer.toolpath.GCodeEvent.SetPosition;
+import gcodeviewer.toolpath.GCodeEvent.SetToolhead;
+import gcodeviewer.toolpath.GCodeEvent.SetToolheadTemp;
+import gcodeviewer.toolpath.GCodeEvent.StartExtrusion;
+import gcodeviewer.toolpath.GCodeEvent.UnrecognisedCode;
 import gcodeviewer.utils.MutablePoint5d;
 
-import java.util.ArrayList;
+import java.io.File;
 import java.util.EnumMap;
 import java.util.EnumSet;
 
@@ -75,16 +76,16 @@ public class MightyParser extends GCodeParser {
 	MutablePoint5d stepsPerMM = new MutablePoint5d(95, 95, 400, 95, 95);
 
 	@Override
-	public void parse(ArrayList<String> gcode) {
+	public void parse(File gcode) {
 
 		current = new MutablePoint5d();
 
 		boolean abort = false;
-		for (String line : gcode) {
+		for (String line : readFile(gcode)) {
 
 			// First, parse the GCode string into an object we can query.
 			GCodeCommand cmd = new GCodeCommand(line);
-
+			
 			if (cmd.hasCode('G')) {
 				abort = buildGCodes(cmd);
 			} else if (cmd.hasCode('M')) {
@@ -680,6 +681,8 @@ public class MightyParser extends GCodeParser {
 			MutablePoint5d fakeOut = new MutablePoint5d(target);
 			fakeOut.setA(p.a());
 			fakeOut.setB(p.b());
+			if(current.z() != fakeOut.z())
+				path.addEvent(new NewLayer());
 			current = fakeOut;
 
 			path.addEvent(new MoveTo(current));

@@ -17,34 +17,17 @@ This program is free software: you can redistribute it and/or modify
  */
 package gcodeviewer;
 
-import gcodeviewer.parsers.GCodeParser;
-import gcodeviewer.parsers.MightyParser;
-import gcodeviewer.visualizers.DualstrusionVisualizer;
 import gcodeviewer.visualizers.GCodeVisualizer;
-
-import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-
-import javax.swing.JFileChooser;
-import javax.swing.SwingUtilities;
-import javax.swing.filechooser.FileFilter;
-import javax.swing.filechooser.FileNameExtensionFilter;
-
 import peasy.PeasyCam;
 import processing.core.PApplet;
 
 public class ProcessingGCodeViewer extends PApplet {
 
 	private final boolean is2D = false;
-	private float currentLayer;
-	private final boolean isPlatformed = true;
+	private final boolean isPlatformed = false;
 	private final int scale = 1;
-	
 
-	private String sourceFile; // The path of the gcode File
-	private final GCodeParser parser = new MightyParser(); // An ArrayList of linesegments composing the model
-	private final GCodeVisualizer visualizer = new DualstrusionVisualizer();
+	public GCodeVisualizer visualizer;
 	
 	private PeasyCam cam;
 	
@@ -57,8 +40,6 @@ public class ProcessingGCodeViewer extends PApplet {
 		noSmooth();
 		
 		setupCamera();
-		
-		selectFile();
 	}
 
 	@Override
@@ -82,45 +63,5 @@ public class ProcessingGCodeViewer extends PApplet {
 		cam.setMaximumDistance(200);
 		cam.setResetOnDoubleClick(false);
 	}
-
-	public void generate() {
-		parser.parse(readFiletoArrayList(sourceFile));
-		visualizer.setToolpath(parser.getPath());
-//		new HugosThing().writeToScad(parser.getPath());
-	}
 	
-	public void selectFile() {
-		try {
-
-			SwingUtilities.invokeLater(new Runnable() {
-				@Override
-				public void run() {
-					JFileChooser fc = new JFileChooser(".");
-					FileFilter gcodeFilter = new FileNameExtensionFilter("Gcode file", "gcode",	"ngc");
-					fc.setDialogTitle("Choose a file...");
-					fc.setFileFilter(gcodeFilter);
-
-					int returned = fc.showOpenDialog(frame);
-					if (returned == JFileChooser.APPROVE_OPTION) {
-						File file = fc.getSelectedFile();
-						sourceFile = file.getPath();
-						generate();
-					}
-				}
-			});
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-	
-	public ArrayList<String> readFiletoArrayList(String s) {
-		ArrayList<String> vect;
-		String lines[] = loadStrings(s);
-		vect = new ArrayList<String>(Arrays.asList(lines));
-		return vect;
-	}
-	
-//	public void writeArrayListToFile(String path, ArrayList<String> list) {
-//		saveStrings(path);
-//	}
 }
