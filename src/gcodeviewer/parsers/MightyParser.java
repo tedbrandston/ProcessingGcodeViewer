@@ -676,14 +676,9 @@ public class MightyParser extends GCodeParser {
 				}
 			}
 
-			// because of the hinky stuff we've been doing with A & B axes, just pretend we've
-			// moved where we thought we were moving
-			MutablePoint5d fakeOut = new MutablePoint5d(target);
-			fakeOut.setA(p.a());
-			fakeOut.setB(p.b());
-			if(current.z() != fakeOut.z())
+			if(current.z() != target.z())
 				path.addEvent(new NewLayer());
-			current = fakeOut;
+			current = target;
 
 			path.addEvent(new MoveTo(current));
 		}

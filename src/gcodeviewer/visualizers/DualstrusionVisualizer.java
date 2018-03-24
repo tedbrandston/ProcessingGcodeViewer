@@ -61,12 +61,15 @@ public class DualstrusionVisualizer extends GCodeVisualizer implements LayerAwar
 			
 			if(evt instanceof MoveTo) {
 				Point5d newPos = ((MoveTo)evt).point;
-				if(currentPos == null)
+				if(newPos.a() != 0 || newPos.b() != 0) {
+					if(currentPos == null)
+						currentPos = newPos;
+					LineSegment newSegment = new LineSegment(currentPos, newPos, color);
+					lines.add(newSegment);
+					layers.registerLineSegment(newSegment);
 					currentPos = newPos;
-				LineSegment newSegment = new LineSegment(currentPos, newPos, color);
-				lines.add(newSegment);
-				layers.registerLineSegment(newSegment);
-				currentPos = newPos;
+				}
+				
 			}
 		}
 		lines.trimToSize();
